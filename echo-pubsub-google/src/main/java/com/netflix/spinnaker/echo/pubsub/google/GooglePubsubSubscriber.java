@@ -16,19 +16,15 @@
 
 package com.netflix.spinnaker.echo.pubsub.google;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.core.ApiService;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.Credentials;
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.netflix.spinnaker.echo.artifacts.MessageArtifactTranslator;
 import com.netflix.spinnaker.echo.config.GooglePubsubCredentialsProvider;
 import com.netflix.spinnaker.echo.config.GooglePubsubProperties.GooglePubsubSubscription;
 import com.netflix.spinnaker.echo.model.pubsub.MessageDescription;
@@ -36,18 +32,12 @@ import com.netflix.spinnaker.echo.model.pubsub.PubsubSystem;
 import com.netflix.spinnaker.echo.pubsub.PubsubMessageHandler;
 import com.netflix.spinnaker.echo.pubsub.model.PubsubSubscriber;
 import com.netflix.spinnaker.echo.pubsub.utils.NodeIdentity;
-import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class GooglePubsubSubscriber implements PubsubSubscriber {
@@ -77,12 +67,12 @@ public class GooglePubsubSubscriber implements PubsubSubscriber {
   }
 
   @Override
-  public PubsubSystem pubsubSystem() {
+  public PubsubSystem getPubsubSystem() {
     return pubsubSystem;
   }
 
   @Override
-  public String subscriptionName() {
+  public String getSubscriptionName() {
     return subscriptionName;
   }
 
@@ -95,16 +85,16 @@ public class GooglePubsubSubscriber implements PubsubSubscriber {
     return String.format("projects/%s/subscriptions/%s", project, name);
   }
 
-  public static GooglePubsubSubscriber buildSubscriber(GooglePubsubSubscription subscription,
-                                                       PubsubMessageHandler pubsubMessageHandler) {
+  public static GooglePubsubSubscriber buildSubscriber(GooglePubsubSubscription subscription, PubsubMessageHandler pubsubMessageHandler) {
     String subscriptionName = subscription.getSubscriptionName();
     String project = subscription.getProject();
     String jsonPath = subscription.getJsonPath();
 
-    GooglePubsubMessageReceiver messageReceiver = new GooglePubsubMessageReceiver(subscription.getAckDeadlineSeconds(),
-        subscription.getName(),
-        pubsubMessageHandler,
-        subscription.readTemplatePath());
+    GooglePubsubMessageReceiver messageReceiver = new GooglePubsubMessageReceiver(
+      subscription.getAckDeadlineSeconds(),
+      subscription.getName(),
+      pubsubMessageHandler
+    );
 
     Credentials credentials = null;
     try {
@@ -162,18 +152,12 @@ public class GooglePubsubSubscriber implements PubsubSubscriber {
 
     private NodeIdentity identity = new NodeIdentity();
 
-    private MessageArtifactTranslator messageArtifactTranslator;
-
-    private ObjectMapper objectMapper = new ObjectMapper();
-
     public GooglePubsubMessageReceiver(Integer ackDeadlineSeconds,
                                        String subscriptionName,
-                                       PubsubMessageHandler pubsubMessageHandler,
-                                       InputStream templateStream) {
+                                       PubsubMessageHandler pubsubMessageHandler) {
       this.ackDeadlineSeconds = ackDeadlineSeconds;
       this.subscriptionName = subscriptionName;
       this.pubsubMessageHandler = pubsubMessageHandler;
-      this.messageArtifactTranslator = new MessageArtifactTranslator(templateStream);
     }
 
     @Override
@@ -191,16 +175,6 @@ public class GooglePubsubSubscriber implements PubsubSubscriber {
         .retentionDeadlineSeconds(7 * 24 * 60 * 60) // Expire key after max retention time, which is 7 days.
         .build();
       GoogleMessageAcknowledger acknowledger = new GoogleMessageAcknowledger(consumer);
-
-      try {
-        List<Artifact> artifacts = messageArtifactTranslator.parseArtifacts(messagePayload);
-        description.setArtifacts(artifacts);
-        log.info("artifacts {}", String.join(", ", artifacts.stream().map(Artifact::toString).collect(Collectors.toList())));
-      } catch (Exception e) {
-        log.error("Failed to process artifacts: {}", e.getMessage(), e);
-        pubsubMessageHandler.handleFailedMessage(description, acknowledger, identity.getIdentity(), messageId);
-        return;
-      }
 
       pubsubMessageHandler.handleMessage(description, acknowledger, identity.getIdentity(), messageId);
     }

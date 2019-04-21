@@ -20,7 +20,6 @@ import com.amazonaws.services.sns.AmazonSNS
 import com.amazonaws.services.sqs.AmazonSQS
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.echo.artifacts.DefaultJinjavaFactory
 import com.netflix.spinnaker.echo.config.AmazonPubsubProperties
 import com.netflix.spinnaker.echo.pubsub.PubsubMessageHandler
 import com.netflix.spinnaker.kork.aws.ARN
@@ -51,8 +50,7 @@ class AmazonSQSSubscriberSpec extends Specification {
     amazonSNS,
     amazonSQS,
     {true},
-    registry,
-    new DefaultJinjavaFactory()
+    registry
   )
 
   def 'should unmarshal an sns notification message'() {

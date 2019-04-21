@@ -41,6 +41,7 @@ public class Trigger {
   public enum Type {
     CRON("cron"),
     GIT("git"),
+    CONCOURSE("concourse"),
     JENKINS("jenkins"),
     DOCKER("docker"),
     WEBHOOK("webhook"),
@@ -65,13 +66,17 @@ public class Trigger {
   String type;
   boolean enabled;
 
+  // Configuration for pipeline triggers
+  String parentPipelineId;
+  String parentPipelineApplication;
+
   // Configuration for git triggers
   String project;
   String slug;
   String source;
   String branch;
 
-  // Configuration for Jenkins triggers
+  // Configuration for Jenkins, Travis, Concourse triggers
   String master;
   String job;
   String propertyFile;
@@ -100,6 +105,9 @@ public class Trigger {
   List<String> status;
   String user;
 
+  // Configuration for artifactory triggers
+  String artifactorySearchName;
+
   // Artifact constraints
   List<String> expectedArtifactIds;
 
@@ -113,6 +121,8 @@ public class Trigger {
    */
   Integer buildNumber;
   String hash;
+  Map<String, Object> buildInfo;
+  Map<String, Object> properties;
   Map parameters;
   Map payload;
   String runAsUser;
@@ -126,6 +136,7 @@ public class Trigger {
   boolean dryRun = false;
 
   List<Map<String, Object>> notifications;
+  List<Map<String, Object>> artifacts;
 
   /**
    * Unique ID of a trigger that can be used to correlate a pipeline execution with its trigger.
@@ -229,12 +240,19 @@ public class Trigger {
       .build();
   }
 
+  public Trigger atArtifactorySearchName(final String artifactorySearchName) {
+    return this.toBuilder()
+      .artifactorySearchName(artifactorySearchName)
+      .build();
+  }
+
   @JsonPOJOBuilder(withPrefix = "")
   public static final class TriggerBuilder {
     // When deserializing triggers, always ignore the value of propagateAuth, which should only
     // be set by Echo.
     @JsonIgnore
     private TriggerBuilder propagateAuth(boolean propagateAuth) {
+      this.propagateAuth = propagateAuth;
       return this;
     }
   }
